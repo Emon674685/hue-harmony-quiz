@@ -72,14 +72,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "scarf" },
+      { name: "description", content: "Find your perfect scarf color with a personalized quiz based on your style and preferences." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "scarf" },
+      { property: "og:description", content: "Find your perfect scarf color with a personalized quiz based on your style and preferences." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "scarf" },
+      { name: "twitter:description", content: "Find your perfect scarf color with a personalized quiz based on your style and preferences." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/7edda0a6-d463-43c2-ae26-718eef068e7a/id-preview-c6ff5f16--a8ae863b-3774-40f6-ab5d-1003feee8032.lovable.app-1778676555593.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/7edda0a6-d463-43c2-ae26-718eef068e7a/id-preview-c6ff5f16--a8ae863b-3774-40f6-ab5d-1003feee8032.lovable.app-1778676555593.png" },
     ],
     links: [
       {
