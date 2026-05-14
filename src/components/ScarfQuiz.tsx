@@ -128,28 +128,16 @@ function recommend(answers: Record<string, Option>): Product[] {
   return scored.slice(0, 4).map((s) => s.p);
 }
 
-// ---------- Face detection ----------
+// ---------- Face detection (lazy npm imports keep initial bundle light) ----------
 let blazeModelPromise: Promise<any> | null = null;
 
-function loadScript(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) return resolve();
-    const s = document.createElement("script");
-    s.src = src;
-    s.async = true;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error("Failed to load " + src));
-    document.head.appendChild(s);
-  });
-}
-
-async function getBlazeModel(): Promise<any> {
+async function getBlazeModel() {
   if (blazeModelPromise) return blazeModelPromise;
   blazeModelPromise = (async () => {
-    await loadScript("https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js");
-    await loadScript("https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.1.0/dist/blazeface.min.js");
-    const w = window as any;
-    return await w.blazeface.load();
+    const tf = await import("@tensorflow/tfjs");
+    await tf.ready();
+    const blazeface = await import("@tensorflow-models/blazeface");
+    return await blazeface.load();
   })();
   return blazeModelPromise;
 }
@@ -158,13 +146,14 @@ async function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = reject;
+    img.onerror = () => reject(new Error("Could not read image"));
     img.src = src;
   });
 }
 
 async function detectFace(dataUrl: string): Promise<boolean> {
   const img = await loadImage(dataUrl);
+  // Native API path (Chromium on some platforms)
   const FD = (window as any).FaceDetector;
   if (typeof FD === "function") {
     try {
@@ -172,7 +161,7 @@ async function detectFace(dataUrl: string): Promise<boolean> {
       const faces = await detector.detect(img);
       if (faces && faces.length > 0) return true;
     } catch {
-      /* fall through */
+      /* fall back to blazeface */
     }
   }
   const model = await getBlazeModel();
