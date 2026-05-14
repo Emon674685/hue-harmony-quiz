@@ -310,16 +310,23 @@ export function ScarfQuiz() {
                 <button
                   type="button"
                   onClick={() => fileRef.current?.click()}
-                  className="w-full rounded-2xl border-2 border-dashed border-border hover:border-primary/50 bg-background p-10 sm:p-14 flex flex-col items-center justify-center text-center transition-all duration-300 hover:-translate-y-0.5"
+                  disabled={validating}
+                  className="w-full rounded-2xl border-2 border-dashed border-border hover:border-primary/50 bg-background p-10 sm:p-14 flex flex-col items-center justify-center text-center transition-all duration-300 hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-wait"
                 >
                   <div className="w-14 h-14 rounded-full flex items-center justify-center mb-4" style={{ background: "var(--gradient-primary)" }}>
                     <Camera className="w-7 h-7 text-primary-foreground" />
                   </div>
-                  <div className="font-semibold text-foreground mb-1">Tap to upload your photo</div>
-                  <div className="text-sm text-muted-foreground">JPG or PNG · stays on your device</div>
-                  <div className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-primary">
-                    <Upload className="w-4 h-4" /> Choose photo
+                  <div className="font-semibold text-foreground mb-1">
+                    {validating ? "Checking your photo…" : "Tap to upload your photo"}
                   </div>
+                  <div className="text-sm text-muted-foreground">
+                    {validating ? "Detecting a face — one moment" : "Clear selfie · JPG or PNG · stays on your device"}
+                  </div>
+                  {!validating && (
+                    <div className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-primary">
+                      <Upload className="w-4 h-4" /> Choose photo
+                    </div>
+                  )}
                 </button>
               ) : (
                 <div className="rounded-2xl border-2 border-primary/30 bg-background p-4 sm:p-5">
@@ -331,7 +338,7 @@ export function ScarfQuiz() {
                         className="w-32 h-32 sm:w-40 sm:h-40 rounded-xl object-cover"
                       />
                       <button
-                        onClick={() => setPhoto(null)}
+                        onClick={() => { setPhoto(null); setPhotoError(null); }}
                         aria-label="Remove photo"
                         className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-background border border-border shadow flex items-center justify-center hover:bg-muted"
                       >
@@ -348,6 +355,12 @@ export function ScarfQuiz() {
                       </Button>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {photoError && (
+                <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 text-destructive text-sm px-4 py-3">
+                  {photoError}
                 </div>
               )}
 
