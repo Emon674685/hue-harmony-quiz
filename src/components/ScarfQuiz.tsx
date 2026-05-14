@@ -128,10 +128,64 @@ function recommend(answers: Record<string, Option>): Product[] {
   return scored.slice(0, 4).map((s) => s.p);
 }
 
+// ---------- Face detection ----------
+let blazeModelPromise: Promise<any> | null = null;
+
+function loadScript(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) return resolve();
+    const s = document.createElement("script");
+    s.src = src;
+    s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("Failed to load " + src));
+    document.head.appendChild(s);
+  });
+}
+
+async function getBlazeModel(): Promise<any> {
+  if (blazeModelPromise) return blazeModelPromise;
+  blazeModelPromise = (async () => {
+    await loadScript("https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js");
+    await loadScript("https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.1.0/dist/blazeface.min.js");
+    const w = window as any;
+    return await w.blazeface.load();
+  })();
+  return blazeModelPromise;
+}
+
+async function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+async function detectFace(dataUrl: string): Promise<boolean> {
+  const img = await loadImage(dataUrl);
+  const FD = (window as any).FaceDetector;
+  if (typeof FD === "function") {
+    try {
+      const detector = new FD({ fastMode: true });
+      const faces = await detector.detect(img);
+      if (faces && faces.length > 0) return true;
+    } catch {
+      /* fall through */
+    }
+  }
+  const model = await getBlazeModel();
+  const predictions = await model.estimateFaces(img, false);
+  return Array.isArray(predictions) && predictions.length > 0;
+}
+
 export function ScarfQuiz() {
   const [stepIndex, setStepIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, Option>>({});
   const [photo, setPhoto] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [validating, setValidating] = useState(false);
   const [done, setDone] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -154,10 +208,34 @@ export function ScarfQuiz() {
     advance();
   };
 
-  const onFile = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => setPhoto(e.target?.result as string);
-    reader.readAsDataURL(file);
+  const onFile = async (file: File) => {
+    setPhotoError(null);
+    if (!file.type.startsWith("image/")) {
+      setPhotoError("Please upload an image file.");
+      return;
+    }
+    const dataUrl: string = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target?.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    setValidating(true);
+    try {
+      const hasFace = await detectFace(dataUrl);
+      if (!hasFace) {
+        setPhotoError("We couldn't find a face in this photo. Please upload a clear selfie of yourself.");
+        setPhoto(null);
+      } else {
+        setPhoto(dataUrl);
+      }
+    } catch {
+      // If detection fails to load, accept the photo rather than block the user
+      setPhoto(dataUrl);
+    } finally {
+      setValidating(false);
+    }
   };
 
   const back = () => {
@@ -171,6 +249,7 @@ export function ScarfQuiz() {
   const reset = () => {
     setAnswers({});
     setPhoto(null);
+    setPhotoError(null);
     setStepIndex(0);
     setDone(false);
   };
@@ -232,16 +311,23 @@ export function ScarfQuiz() {
                 <button
                   type="button"
                   onClick={() => fileRef.current?.click()}
-                  className="w-full rounded-2xl border-2 border-dashed border-border hover:border-primary/50 bg-background p-10 sm:p-14 flex flex-col items-center justify-center text-center transition-all duration-300 hover:-translate-y-0.5"
+                  disabled={validating}
+                  className="w-full rounded-2xl border-2 border-dashed border-border hover:border-primary/50 bg-background p-10 sm:p-14 flex flex-col items-center justify-center text-center transition-all duration-300 hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-wait"
                 >
                   <div className="w-14 h-14 rounded-full flex items-center justify-center mb-4" style={{ background: "var(--gradient-primary)" }}>
                     <Camera className="w-7 h-7 text-primary-foreground" />
                   </div>
-                  <div className="font-semibold text-foreground mb-1">Tap to upload your photo</div>
-                  <div className="text-sm text-muted-foreground">JPG or PNG · stays on your device</div>
-                  <div className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-primary">
-                    <Upload className="w-4 h-4" /> Choose photo
+                  <div className="font-semibold text-foreground mb-1">
+                    {validating ? "Checking your photo…" : "Tap to upload your photo"}
                   </div>
+                  <div className="text-sm text-muted-foreground">
+                    {validating ? "Detecting a face — one moment" : "Clear selfie · JPG or PNG · stays on your device"}
+                  </div>
+                  {!validating && (
+                    <div className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-primary">
+                      <Upload className="w-4 h-4" /> Choose photo
+                    </div>
+                  )}
                 </button>
               ) : (
                 <div className="rounded-2xl border-2 border-primary/30 bg-background p-4 sm:p-5">
@@ -253,7 +339,7 @@ export function ScarfQuiz() {
                         className="w-32 h-32 sm:w-40 sm:h-40 rounded-xl object-cover"
                       />
                       <button
-                        onClick={() => setPhoto(null)}
+                        onClick={() => { setPhoto(null); setPhotoError(null); }}
                         aria-label="Remove photo"
                         className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-background border border-border shadow flex items-center justify-center hover:bg-muted"
                       >
@@ -270,6 +356,12 @@ export function ScarfQuiz() {
                       </Button>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {photoError && (
+                <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 text-destructive text-sm px-4 py-3">
+                  {photoError}
                 </div>
               )}
 
