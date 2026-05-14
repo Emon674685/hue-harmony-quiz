@@ -131,18 +131,33 @@ function recommend(answers: Record<string, Option>): Product[] {
 export function ScarfQuiz() {
   const [stepIndex, setStepIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, Option>>({});
+  const [photo, setPhoto] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
-  const step = steps[stepIndex];
-  const progress = done ? 100 : (stepIndex / steps.length) * 100;
+  const totalSteps = steps.length + 1; // +1 for photo step
+  const isPhotoStep = stepIndex === 0;
+  const step = isPhotoStep ? null : steps[stepIndex - 1];
+  const progress = done ? 100 : (stepIndex / totalSteps) * 100;
   const selected = step ? answers[step.key] : null;
 
-  const select = (opt: Option) => {
-    setAnswers((a) => ({ ...a, [step.key]: opt }));
+  const advance = () => {
     setTimeout(() => {
-      if (stepIndex < steps.length - 1) setStepIndex(stepIndex + 1);
+      if (stepIndex < totalSteps - 1) setStepIndex(stepIndex + 1);
       else setDone(true);
     }, 280);
+  };
+
+  const select = (opt: Option) => {
+    if (!step) return;
+    setAnswers((a) => ({ ...a, [step.key]: opt }));
+    advance();
+  };
+
+  const onFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => setPhoto(e.target?.result as string);
+    reader.readAsDataURL(file);
   };
 
   const back = () => {
@@ -155,6 +170,7 @@ export function ScarfQuiz() {
 
   const reset = () => {
     setAnswers({});
+    setPhoto(null);
     setStepIndex(0);
     setDone(false);
   };
@@ -182,7 +198,7 @@ export function ScarfQuiz() {
           <div className="mb-8">
             <div className="flex justify-between items-center mb-3 text-sm">
               <span className="font-medium text-foreground">
-                {done ? "Complete" : `Step ${stepIndex + 1} of ${steps.length}`}
+                {done ? "Complete" : `Step ${stepIndex + 1} of ${totalSteps}`}
               </span>
               <span className="text-muted-foreground">{Math.round(progress)}%</span>
             </div>
@@ -193,6 +209,84 @@ export function ScarfQuiz() {
               />
             </div>
           </div>
+
+          {!done && isPhotoStep && (
+            <div key="photo" className="animate-in fade-in slide-in-from-right-4 duration-500">
+              <h3 className="text-2xl sm:text-3xl font-serif mb-2">Upload your photo</h3>
+              <p className="text-muted-foreground mb-8">
+                Add a clear selfie so we can read your tone — it never leaves your browser.
+              </p>
+
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) onFile(f);
+                }}
+              />
+
+              {!photo ? (
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="w-full rounded-2xl border-2 border-dashed border-border hover:border-primary/50 bg-background p-10 sm:p-14 flex flex-col items-center justify-center text-center transition-all duration-300 hover:-translate-y-0.5"
+                >
+                  <div className="w-14 h-14 rounded-full flex items-center justify-center mb-4" style={{ background: "var(--gradient-primary)" }}>
+                    <Camera className="w-7 h-7 text-primary-foreground" />
+                  </div>
+                  <div className="font-semibold text-foreground mb-1">Tap to upload your photo</div>
+                  <div className="text-sm text-muted-foreground">JPG or PNG · stays on your device</div>
+                  <div className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-primary">
+                    <Upload className="w-4 h-4" /> Choose photo
+                  </div>
+                </button>
+              ) : (
+                <div className="rounded-2xl border-2 border-primary/30 bg-background p-4 sm:p-5">
+                  <div className="flex flex-col sm:flex-row items-center gap-5">
+                    <div className="relative">
+                      <img
+                        src={photo}
+                        alt="Your upload"
+                        className="w-32 h-32 sm:w-40 sm:h-40 rounded-xl object-cover"
+                      />
+                      <button
+                        onClick={() => setPhoto(null)}
+                        aria-label="Remove photo"
+                        className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-background border border-border shadow flex items-center justify-center hover:bg-muted"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div className="flex-1 text-center sm:text-left">
+                      <div className="font-semibold text-foreground mb-1">Photo added</div>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Looking good. Continue to answer a few quick questions.
+                      </p>
+                      <Button onClick={() => fileRef.current?.click()} variant="outline" size="sm" className="gap-2">
+                        <Upload className="w-4 h-4" /> Replace
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center mt-8">
+                <Button variant="ghost" onClick={() => advance()} className="gap-2">
+                  Skip
+                </Button>
+                <Button
+                  onClick={() => advance()}
+                  disabled={!photo}
+                  className="gap-2"
+                >
+                  Continue <ArrowRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          )}
 
           {!done && step && (
             <div key={step.key} className="animate-in fade-in slide-in-from-right-4 duration-500">
