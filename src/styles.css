@@ -148,3 +148,8 @@
     color: var(--color-foreground);
   }
 }
+
+@keyframes scan {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(400%); }
+}
