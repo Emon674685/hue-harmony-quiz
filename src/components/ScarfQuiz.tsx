@@ -214,14 +214,18 @@ export function ScarfQuiz() {
     try {
       const hasFace = await detectFace(dataUrl);
       if (!hasFace) {
-        setPhotoError("We couldn't find a face in this photo. Please upload a clear selfie of yourself.");
+        setPhotoError(
+          "This doesn't look like a person. Please upload a clear, front-facing selfie of a man or woman — face visible, good lighting, no sunglasses or filters."
+        );
         setPhoto(null);
       } else {
         setPhoto(dataUrl);
       }
     } catch {
-      // If detection fails to load, accept the photo rather than block the user
-      setPhoto(dataUrl);
+      setPhotoError(
+        "We couldn't analyze this image. Please try a clear, front-facing selfie of a man or woman in good lighting."
+      );
+      setPhoto(null);
     } finally {
       setValidating(false);
     }
