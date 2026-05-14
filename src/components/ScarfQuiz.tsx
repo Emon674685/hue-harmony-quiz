@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Sparkles, RotateCcw, Check, Upload, Camera, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Sparkles, RotateCcw, Check, Upload, Camera, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import scarfCoral from "@/assets/scarf-coral.jpg";
 import scarfEmerald from "@/assets/scarf-emerald.jpg";
