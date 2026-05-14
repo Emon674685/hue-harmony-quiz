@@ -249,6 +249,7 @@ export function ScarfQuiz() {
   const reset = () => {
     setAnswers({});
     setPhoto(null);
+    setPhotoError(null);
     setStepIndex(0);
     setDone(false);
   };
