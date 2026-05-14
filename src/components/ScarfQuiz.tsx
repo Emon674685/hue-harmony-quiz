@@ -305,19 +305,38 @@ export function ScarfQuiz() {
                   type="button"
                   onClick={() => fileRef.current?.click()}
                   disabled={validating}
-                  className="w-full rounded-2xl border-2 border-dashed border-border hover:border-primary/50 bg-background p-10 sm:p-14 flex flex-col items-center justify-center text-center transition-all duration-300 hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-wait"
+                  className="relative w-full overflow-hidden rounded-2xl border-2 border-dashed border-border hover:border-primary/50 bg-background p-10 sm:p-14 flex flex-col items-center justify-center text-center transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-wait disabled:hover:translate-y-0"
                 >
-                  <div className="w-14 h-14 rounded-full flex items-center justify-center mb-4" style={{ background: "var(--gradient-primary)" }}>
-                    <Camera className="w-7 h-7 text-primary-foreground" />
+                  {validating && (
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 animate-[scan_1.4s_ease-in-out_infinite]"
+                      style={{
+                        background:
+                          "linear-gradient(90deg, transparent, color-mix(in oklch, var(--primary) 18%, transparent), transparent)",
+                      }}
+                    />
+                  )}
+                  <div
+                    className={`relative w-14 h-14 rounded-full flex items-center justify-center mb-4 ${validating ? "animate-pulse" : ""}`}
+                    style={{ background: "var(--gradient-primary)" }}
+                  >
+                    {validating ? (
+                      <Loader2 className="w-7 h-7 text-primary-foreground animate-spin" />
+                    ) : (
+                      <Camera className="w-7 h-7 text-primary-foreground" />
+                    )}
                   </div>
-                  <div className="font-semibold text-foreground mb-1">
-                    {validating ? "Checking your photo…" : "Tap to upload your photo"}
+                  <div className="relative font-semibold text-foreground mb-1">
+                    {validating ? "Analyzing your photo…" : "Tap to upload your photo"}
                   </div>
-                  <div className="text-sm text-muted-foreground">
-                    {validating ? "Detecting a face — one moment" : "Clear selfie · JPG or PNG · stays on your device"}
+                  <div className="relative text-sm text-muted-foreground">
+                    {validating
+                      ? "Looking for a face — just a moment"
+                      : "Clear selfie of a man or woman · JPG or PNG · stays on your device"}
                   </div>
                   {!validating && (
-                    <div className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-primary">
+                    <div className="relative mt-5 inline-flex items-center gap-2 text-sm font-medium text-primary">
                       <Upload className="w-4 h-4" /> Choose photo
                     </div>
                   )}
