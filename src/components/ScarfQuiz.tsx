@@ -128,6 +128,58 @@ function recommend(answers: Record<string, Option>): Product[] {
   return scored.slice(0, 4).map((s) => s.p);
 }
 
+// ---------- Face detection ----------
+let blazeModelPromise: Promise<any> | null = null;
+
+function loadScript(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) return resolve();
+    const s = document.createElement("script");
+    s.src = src;
+    s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("Failed to load " + src));
+    document.head.appendChild(s);
+  });
+}
+
+async function getBlazeModel(): Promise<any> {
+  if (blazeModelPromise) return blazeModelPromise;
+  blazeModelPromise = (async () => {
+    await loadScript("https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js");
+    await loadScript("https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.1.0/dist/blazeface.min.js");
+    const w = window as any;
+    return await w.blazeface.load();
+  })();
+  return blazeModelPromise;
+}
+
+async function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+async function detectFace(dataUrl: string): Promise<boolean> {
+  const img = await loadImage(dataUrl);
+  const FD = (window as any).FaceDetector;
+  if (typeof FD === "function") {
+    try {
+      const detector = new FD({ fastMode: true });
+      const faces = await detector.detect(img);
+      if (faces && faces.length > 0) return true;
+    } catch {
+      /* fall through */
+    }
+  }
+  const model = await getBlazeModel();
+  const predictions = await model.estimateFaces(img, false);
+  return Array.isArray(predictions) && predictions.length > 0;
+}
+
 export function ScarfQuiz() {
   const [stepIndex, setStepIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, Option>>({});
