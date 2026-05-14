@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Sparkles, RotateCcw, Check, Upload, Camera, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Sparkles, RotateCcw, Check, Upload, Camera, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import scarfCoral from "@/assets/scarf-coral.jpg";
 import scarfEmerald from "@/assets/scarf-emerald.jpg";
@@ -128,28 +128,16 @@ function recommend(answers: Record<string, Option>): Product[] {
   return scored.slice(0, 4).map((s) => s.p);
 }
 
-// ---------- Face detection ----------
+// ---------- Face detection (lazy npm imports keep initial bundle light) ----------
 let blazeModelPromise: Promise<any> | null = null;
 
-function loadScript(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) return resolve();
-    const s = document.createElement("script");
-    s.src = src;
-    s.async = true;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error("Failed to load " + src));
-    document.head.appendChild(s);
-  });
-}
-
-async function getBlazeModel(): Promise<any> {
+async function getBlazeModel() {
   if (blazeModelPromise) return blazeModelPromise;
   blazeModelPromise = (async () => {
-    await loadScript("https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js");
-    await loadScript("https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.1.0/dist/blazeface.min.js");
-    const w = window as any;
-    return await w.blazeface.load();
+    const tf = await import("@tensorflow/tfjs");
+    await tf.ready();
+    const blazeface = await import("@tensorflow-models/blazeface");
+    return await blazeface.load();
   })();
   return blazeModelPromise;
 }
@@ -158,13 +146,14 @@ async function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = reject;
+    img.onerror = () => reject(new Error("Could not read image"));
     img.src = src;
   });
 }
 
 async function detectFace(dataUrl: string): Promise<boolean> {
   const img = await loadImage(dataUrl);
+  // Native API path (Chromium on some platforms)
   const FD = (window as any).FaceDetector;
   if (typeof FD === "function") {
     try {
@@ -172,7 +161,7 @@ async function detectFace(dataUrl: string): Promise<boolean> {
       const faces = await detector.detect(img);
       if (faces && faces.length > 0) return true;
     } catch {
-      /* fall through */
+      /* fall back to blazeface */
     }
   }
   const model = await getBlazeModel();
@@ -225,14 +214,18 @@ export function ScarfQuiz() {
     try {
       const hasFace = await detectFace(dataUrl);
       if (!hasFace) {
-        setPhotoError("We couldn't find a face in this photo. Please upload a clear selfie of yourself.");
+        setPhotoError(
+          "This doesn't look like a person. Please upload a clear, front-facing selfie of a man or woman — face visible, good lighting, no sunglasses or filters."
+        );
         setPhoto(null);
       } else {
         setPhoto(dataUrl);
       }
     } catch {
-      // If detection fails to load, accept the photo rather than block the user
-      setPhoto(dataUrl);
+      setPhotoError(
+        "We couldn't analyze this image. Please try a clear, front-facing selfie of a man or woman in good lighting."
+      );
+      setPhoto(null);
     } finally {
       setValidating(false);
     }
@@ -312,19 +305,38 @@ export function ScarfQuiz() {
                   type="button"
                   onClick={() => fileRef.current?.click()}
                   disabled={validating}
-                  className="w-full rounded-2xl border-2 border-dashed border-border hover:border-primary/50 bg-background p-10 sm:p-14 flex flex-col items-center justify-center text-center transition-all duration-300 hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-wait"
+                  className="relative w-full overflow-hidden rounded-2xl border-2 border-dashed border-border hover:border-primary/50 bg-background p-10 sm:p-14 flex flex-col items-center justify-center text-center transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-wait disabled:hover:translate-y-0"
                 >
-                  <div className="w-14 h-14 rounded-full flex items-center justify-center mb-4" style={{ background: "var(--gradient-primary)" }}>
-                    <Camera className="w-7 h-7 text-primary-foreground" />
+                  {validating && (
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 animate-[scan_1.4s_ease-in-out_infinite]"
+                      style={{
+                        background:
+                          "linear-gradient(90deg, transparent, color-mix(in oklch, var(--primary) 18%, transparent), transparent)",
+                      }}
+                    />
+                  )}
+                  <div
+                    className={`relative w-14 h-14 rounded-full flex items-center justify-center mb-4 ${validating ? "animate-pulse" : ""}`}
+                    style={{ background: "var(--gradient-primary)" }}
+                  >
+                    {validating ? (
+                      <Loader2 className="w-7 h-7 text-primary-foreground animate-spin" />
+                    ) : (
+                      <Camera className="w-7 h-7 text-primary-foreground" />
+                    )}
                   </div>
-                  <div className="font-semibold text-foreground mb-1">
-                    {validating ? "Checking your photo…" : "Tap to upload your photo"}
+                  <div className="relative font-semibold text-foreground mb-1">
+                    {validating ? "Analyzing your photo…" : "Tap to upload your photo"}
                   </div>
-                  <div className="text-sm text-muted-foreground">
-                    {validating ? "Detecting a face — one moment" : "Clear selfie · JPG or PNG · stays on your device"}
+                  <div className="relative text-sm text-muted-foreground">
+                    {validating
+                      ? "Looking for a face — just a moment"
+                      : "Clear selfie of a man or woman · JPG or PNG · stays on your device"}
                   </div>
                   {!validating && (
-                    <div className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-primary">
+                    <div className="relative mt-5 inline-flex items-center gap-2 text-sm font-medium text-primary">
                       <Upload className="w-4 h-4" /> Choose photo
                     </div>
                   )}
