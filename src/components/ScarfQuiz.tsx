@@ -156,10 +156,34 @@ export function ScarfQuiz() {
     advance();
   };
 
-  const onFile = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => setPhoto(e.target?.result as string);
-    reader.readAsDataURL(file);
+  const onFile = async (file: File) => {
+    setPhotoError(null);
+    if (!file.type.startsWith("image/")) {
+      setPhotoError("Please upload an image file.");
+      return;
+    }
+    const dataUrl: string = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target?.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    setValidating(true);
+    try {
+      const hasFace = await detectFace(dataUrl);
+      if (!hasFace) {
+        setPhotoError("We couldn't find a face in this photo. Please upload a clear selfie of yourself.");
+        setPhoto(null);
+      } else {
+        setPhoto(dataUrl);
+      }
+    } catch {
+      // If detection fails to load, accept the photo rather than block the user
+      setPhoto(dataUrl);
+    } finally {
+      setValidating(false);
+    }
   };
 
   const back = () => {
