@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Sparkles, RotateCcw, Check, Upload, Camera, X, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Sparkles, RotateCcw, Check, Upload, Camera, X, Loader2, Sparkle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { analyzeColorPsychology } from "@/server/aiAnalysis";
 import scarfCoral from "@/assets/scarf-coral.jpg";
 import scarfEmerald from "@/assets/scarf-emerald.jpg";
 import scarfBlush from "@/assets/scarf-blush.jpg";
@@ -172,6 +173,7 @@ async function detectFace(dataUrl: string): Promise<boolean> {
 export function ScarfQuiz() {
   const [stepIndex, setStepIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, Option>>({});
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [photo, setPhoto] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [validating, setValidating] = useState(false);
@@ -220,6 +222,24 @@ export function ScarfQuiz() {
         setPhoto(null);
       } else {
         setPhoto(dataUrl);
+        try {
+          const base64 = dataUrl.split(",")[1];
+          const result = await analyzeColorPsychology({ data: { imageBase64: base64, mimeType: file.type } });
+          
+          setAiSummary(result.summary);
+          
+          const skinOption = steps[0].options.find(o => o.id === result.skinTone) || steps[0].options[1];
+          const undertoneOption = steps[1].options.find(o => o.id === result.undertone) || steps[1].options[1];
+          
+          setAnswers(a => ({
+            ...a,
+            [steps[0].key]: skinOption,
+            [steps[1].key]: undertoneOption
+          }));
+        } catch (aiErr: any) {
+          console.error(aiErr);
+          setPhotoError("AI analysis failed, but you can still proceed manually.");
+        }
       }
     } catch {
       setPhotoError(
@@ -243,6 +263,7 @@ export function ScarfQuiz() {
     setAnswers({});
     setPhoto(null);
     setPhotoError(null);
+    setAiSummary(null);
     setStepIndex(0);
     setDone(false);
   };
@@ -351,7 +372,7 @@ export function ScarfQuiz() {
                         className="w-32 h-32 sm:w-40 sm:h-40 rounded-xl object-cover"
                       />
                       <button
-                        onClick={() => { setPhoto(null); setPhotoError(null); }}
+                        onClick={() => { setPhoto(null); setPhotoError(null); setAiSummary(null); }}
                         aria-label="Remove photo"
                         className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-background border border-border shadow flex items-center justify-center hover:bg-muted"
                       >
@@ -359,9 +380,11 @@ export function ScarfQuiz() {
                       </button>
                     </div>
                     <div className="flex-1 text-center sm:text-left">
-                      <div className="font-semibold text-foreground mb-1">Photo added</div>
+                      <div className="font-semibold text-foreground mb-1 inline-flex items-center gap-1.5">
+                        {aiSummary ? <><Sparkle className="w-4 h-4 text-primary" /> AI Color Analysis</> : "Photo added"}
+                      </div>
                       <p className="text-sm text-muted-foreground mb-4">
-                        Looking good. Continue to answer a few quick questions.
+                        {aiSummary || "Looking good. Continue to answer a few quick questions."}
                       </p>
                       <Button onClick={() => fileRef.current?.click()} variant="outline" size="sm" className="gap-2">
                         <Upload className="w-4 h-4" /> Replace
@@ -382,8 +405,14 @@ export function ScarfQuiz() {
                   Skip
                 </Button>
                 <Button
-                  onClick={() => advance()}
-                  disabled={!photo}
+                  onClick={() => {
+                    if (aiSummary) {
+                      setStepIndex(3);
+                    } else {
+                      advance();
+                    }
+                  }}
+                  disabled={!photo || validating}
                   className="gap-2"
                 >
                   Continue <ArrowRight className="w-4 h-4" />
