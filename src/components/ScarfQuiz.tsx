@@ -439,13 +439,7 @@ export function ScarfQuiz() {
                   Skip
                 </Button>
                 <Button
-                  onClick={() => {
-                    if (aiSummary) {
-                      setStepIndex(3);
-                    } else {
-                      advance();
-                    }
-                  }}
+                  onClick={() => advance()}
                   disabled={!photo || validating}
                   className="gap-2"
                 >
@@ -509,9 +503,15 @@ export function ScarfQuiz() {
                 >
                   <ArrowLeft className="w-4 h-4" /> Back
                 </Button>
-                <span className="text-xs text-muted-foreground hidden sm:block">
-                  Tap an answer to continue
-                </span>
+                {selected ? (
+                  <Button onClick={() => advance()} className="gap-2">
+                    Continue <ArrowRight className="w-4 h-4" />
+                  </Button>
+                ) : (
+                  <span className="text-xs text-muted-foreground hidden sm:block">
+                    Tap an answer to continue
+                  </span>
+                )}
               </div>
             </div>
           )}
