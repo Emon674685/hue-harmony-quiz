@@ -152,6 +152,34 @@ async function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
+async function resizeImage(dataUrl: string, maxWidth: number, maxHeight: number): Promise<string> {
+  const img = await loadImage(dataUrl);
+  let width = img.width;
+  let height = img.height;
+
+  if (width > height) {
+    if (width > maxWidth) {
+      height = Math.round((height * maxWidth) / width);
+      width = maxWidth;
+    }
+  } else {
+    if (height > maxHeight) {
+      width = Math.round((width * maxHeight) / height);
+      height = maxHeight;
+    }
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    ctx.drawImage(img, 0, 0, width, height);
+    return canvas.toDataURL("image/jpeg", 0.8);
+  }
+  return dataUrl;
+}
+
 async function detectFace(dataUrl: string): Promise<boolean> {
   const img = await loadImage(dataUrl);
   // Native API path (Chromium on some platforms)
@@ -223,8 +251,9 @@ export function ScarfQuiz() {
       } else {
         setPhoto(dataUrl);
         try {
-          const base64 = dataUrl.split(",")[1];
-          const result = await analyzeColorPsychology({ data: { imageBase64: base64, mimeType: file.type } });
+          const resizedDataUrl = await resizeImage(dataUrl, 800, 800);
+          const base64 = resizedDataUrl.split(",")[1];
+          const result = await analyzeColorPsychology({ data: { imageBase64: base64, mimeType: "image/jpeg" } });
           
           setAiSummary(result.summary);
           
@@ -238,7 +267,12 @@ export function ScarfQuiz() {
           }));
         } catch (aiErr: any) {
           console.error(aiErr);
-          setPhotoError("AI analysis failed, but you can still proceed manually.");
+          const msg = aiErr?.message || "";
+          if (msg.includes("GEMINI_API_KEY")) {
+             setPhotoError("Missing Gemini API Key. If running locally, restart the dev server. On Vercel, check env variables.");
+          } else {
+             setPhotoError("AI analysis failed: " + msg + " - You can still proceed manually.");
+          }
         }
       }
     } catch {
