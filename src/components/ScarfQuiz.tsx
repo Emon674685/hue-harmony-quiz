@@ -255,7 +255,7 @@ export function ScarfQuiz() {
           const base64 = resizedDataUrl.split(",")[1];
           const result = await analyzeColorPsychology({ data: { imageBase64: base64, mimeType: "image/jpeg" } });
           
-          if (result.gender === "male") {
+          if (result.gender && result.gender.toLowerCase().includes("male") && !result.gender.toLowerCase().includes("female")) {
             setPhotoError("This product not for man only for women please upload women photo.");
             setPhoto(null);
             return;
